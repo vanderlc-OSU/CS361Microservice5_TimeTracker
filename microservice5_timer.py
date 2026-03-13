@@ -16,7 +16,7 @@ USER CONFIGURATION (set once at startup via user_config.txt):
     the terminal.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FILE PROTOCOL  (same flag-file pattern as microservice6)
+FILE PROTOCOL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 REQUEST  — written by the CALLING microservice:
@@ -59,11 +59,9 @@ RESPONSE_FILE        = "timer_response.txt"
 REQUEST_READY_FLAG   = "timer_request_ready.flag"
 RESPONSE_READY_FLAG  = "timer_response_ready.flag"
 
-POLL_INTERVAL        = 0.05   # seconds between flag checks
+POLL_INTERVAL        = 0.05
 DATETIME_FMT         = "%Y-%m-%d %H:%M:%S"
 
-
-# ── helpers ───────────────────────────────────────────────────────────────────
 
 def now_str() -> str:
     return datetime.now().strftime(DATETIME_FMT)
@@ -79,11 +77,9 @@ def load_config() -> str:
             return interval
         print(f"[timer] WARNING: {USER_CONFIG_FILE} contains unknown value {interval!r}")
 
-    # Prompt interactively
     while True:
         choice = input("[timer] Reset interval — enter 'daily' or 'weekly': ").strip().lower()
         if choice in ("daily", "weekly"):
-            # Save for next run
             with open(USER_CONFIG_FILE, "w") as f:
                 f.write(choice + "\n")
             print(f"[timer] Saved interval to {USER_CONFIG_FILE}")
@@ -128,18 +124,15 @@ def save_last_reset(service_name: str, dt: datetime):
 def should_reset(last_reset: datetime | None, interval: str) -> bool:
     """Return True if enough time has passed since the last reset."""
     if last_reset is None:
-        return True   # never reset before → reset now
+        return True
     delta = datetime.now() - last_reset
     if interval == "daily":
         return delta >= timedelta(days=1)
-    else:  # weekly
+    else:
         return delta >= timedelta(weeks=1)
 
 
-# ── server loop ───────────────────────────────────────────────────────────────
-
 def run_server():
-    # Clean up stale flags from a previous run
     for f in (REQUEST_FILE, RESPONSE_FILE, REQUEST_READY_FLAG, RESPONSE_READY_FLAG):
         if os.path.exists(f):
             os.remove(f)
@@ -156,7 +149,6 @@ def run_server():
             time.sleep(POLL_INTERVAL)
             continue
 
-        # Read the requesting service name
         try:
             with open(REQUEST_FILE, "r") as f:
                 service_name = f.read().strip()
@@ -166,18 +158,15 @@ def run_server():
 
         os.remove(REQUEST_READY_FLAG)
 
-        # Decide
         now = datetime.now()
         last_reset = load_last_reset(service_name)
         reset_needed = should_reset(last_reset, interval)
-
         last_str = last_reset.strftime(DATETIME_FMT) if last_reset else "never"
-        answer   = "YES" if reset_needed else "NO"
+        answer = "YES" if reset_needed else "NO"
 
         if reset_needed:
             save_last_reset(service_name, now)
 
-        # Write response
         response_line = f"{answer},{now.strftime(DATETIME_FMT)},{last_str},{interval}"
         with open(RESPONSE_FILE, "w") as f:
             f.write(response_line + "\n")
